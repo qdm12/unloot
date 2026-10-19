@@ -28,7 +28,7 @@ use crate::imageops;
 use crate::llm::{self, Llm};
 use crate::scan::{self, SourceImage, settled};
 use crate::state::{Processed, State};
-use crate::util::{self, FileLock};
+use crate::util;
 
 /// Grams per ounce.
 const G_PER_OZ: f64 = 28.349_523_125;
@@ -54,24 +54,10 @@ pub fn run(cfg: &Config) -> Result<Report> {
             .with_context(|| format!("create output directory {}", output.display()))?;
     }
 
-    // Two runs against one output directory would race over names and delete
-    // each other's work, so only one is allowed.
-    let _lock = if cfg.dry_run {
-        None
-    } else {
-        let lock_path = output.join(".unloot.lock");
-        match FileLock::acquire(&lock_path) {
-            Ok(l) => Some(l),
-            Err(e) => {
-                return Err(e).with_context(|| {
-                    format!(
-                        "another unloot run already holds {} — wait for it, or point --output-dir somewhere else",
-                        lock_path.display()
-                    )
-                });
-            }
-        }
-    };
+    // One run per output directory, please: two at once would race over folder
+    // names and delete each other's work. Nothing enforces it — a lock file that
+    // has to outlive the run to be worth anything is more furniture than a tool
+    // for one person's photo shelf deserves. See the README.
 
     let client: Box<dyn Llm> = if cfg.mock_llm {
         Box::new(llm::MockLlm::new(cfg)?)

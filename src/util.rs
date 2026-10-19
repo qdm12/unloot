@@ -3,7 +3,6 @@
 
 use std::fs::File;
 use std::io::Read;
-use std::os::fd::AsRawFd;
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
@@ -129,35 +128,6 @@ pub fn init_tracing(level: &str) {
         .with_target(false)
         .without_time();
     let _ = builder.try_init();
-}
-
-/// An exclusive lock held for the life of the process.
-///
-/// `flock` is released by the kernel if the process dies, so a run killed mid
-/// flight does not leave a lock file that blocks the next one.
-pub struct FileLock {
-    file: File,
-}
-
-impl FileLock {
-    pub fn acquire(path: &Path) -> Result<Self> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .with_context(|| format!("mkdir {}", parent.display()))?;
-        }
-        let file = File::create(path).with_context(|| format!("create lock {}", path.display()))?;
-        let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
-        if rc != 0 {
-            bail!("{} is locked by another run", path.display());
-        }
-        Ok(FileLock { file })
-    }
-}
-
-impl Drop for FileLock {
-    fn drop(&mut self) {
-        unsafe { libc::flock(self.file.as_raw_fd(), libc::LOCK_UN) };
-    }
 }
 
 /// Parse an EXIF timestamp (`2026:10:04 11:07:40`) as local time.

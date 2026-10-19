@@ -1319,7 +1319,6 @@ dependencies = [
  "hex",
  "image",
  "kamadak-exif",
- "libc",
  "rayon",
  "regex",
  "serde",

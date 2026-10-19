@@ -186,10 +186,9 @@ If you would rather have shorter folders, `--name-template "{category} {color} s
 drops the description, and `--name-template "{category} size {size}"` drops the
 colour too.
 
-Two more files appear, both hidden: `.unloot/state.json` (the ledger of what has
-been processed, and where each photo ended up) and `.unloot.lock` while a run is
-in progress. They are what make a second run cheap and two runs at once
-impossible.
+One hidden file appears: `.unloot/state.json`, the ledger of what has been
+processed and where each photo ended up. It is what makes a second run cheap —
+and what tells a third run that these photos are already sorted.
 
 ### A shelf that is already sorted
 
@@ -227,13 +226,19 @@ unloot --input-dir ~/Pictures/listings --output-dir ~/Pictures/listings
   verified.
 - **`--dry-run` first**, honestly. It is cheap and it shows you the folders and
   the sizes before anything moves.
+- **Not two-process safe.** One unloot per output directory at a time, please.
+  Two runs at once would race over folder names and could delete each other's
+  work. There is deliberately no lock file: to be worth anything a lock file has
+  to survive the run that made it, and this is a tool for one person's shelf of
+  photos, not a service. If you script it, run the jobs in series.
 - **A folder unloot did not create is read-only.** An item directory that was
   already there keeps its name, its file names, its bytes and its timestamps —
   the end-to-end test snapshots the tree before and after and insists they match.
   Only loose photos get moved, and only once their replacement is on disk.
 - **A wrong boundary is the worst case**, and it happens: two similar jumpers,
-  one folder. The photos are all still there and the CSV lists which source file
-  went where, so moving `photo_04.jpg` into a new folder is a ten-second fix.
+  one folder. Nothing is lost: every photo is in a folder, and
+  `.unloot/state.json` records which original became which `photo_NN.jpg`, so
+  moving `photo_04.jpg` out into a folder of its own is a ten-second fix.
 - **`--best-effort`** lets a run finish when the model is unreachable, cutting
   windows on the largest capture gap instead and saying loudly which items were
   guessed. Without it, unloot stops and tells you, rather than inventing

@@ -422,18 +422,29 @@ impl Llm for MockLlm {
 }
 
 /// Extract the `id=N ...` lines a boundary prompt is built from.
+/// The `id=N file=X[ gap=Ns]` header lines of a boundary prompt, in order.
+///
+/// Only those: the prompt repeats `Photo id=N of file X` above each image, and
+/// counting those too would double the reply. The first photo of a window has
+/// no predecessor, so `gap=` is optional — a mock that required it would answer
+/// for five of six photos and the strict parser would (rightly) refuse.
 fn flat_lines(text: &str) -> Vec<(Value, String, f64)> {
     text.lines()
+        // The header rows; the interleaved marker is "Photo id=N of file X".
+        .filter(|l| l.contains("id=") && !l.contains(" of file "))
         .filter_map(|l| {
             let id = l.split("id=").nth(1)?.split([' ', ',']).next()?.to_string();
-            let gap: f64 = l
+            let gap = l
                 .split("gap=")
-                .nth(1)?
-                .split(['s', ' ', ','])
-                .next()?
-                .parse()
+                .nth(1)
+                .and_then(|g| g.split(['s', ' ', ',']).next().and_then(|t| t.parse().ok()))
                 .unwrap_or(0.0);
-            Some((Value::from(id), l.to_string(), gap))
+            let id = id
+                .parse::<i64>()
+                .ok()
+                .map(Value::from)
+                .unwrap_or(Value::Null);
+            Some((id, l.to_string(), gap))
         })
         .collect()
 }
@@ -449,6 +460,27 @@ pub fn prepare_llm_image(path: &Path, long_edge: u32) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_mock_reads_the_header_table_only_and_every_row_of_it() {
+        // A window of three: the first has no gap, and the "Photo id=" lines
+        // repeat the ids. Answering the headers only, all three, is the job.
+        let prompt = "These photos are in capture order.\n\
+                      id=1 file=a.jpg\n\
+                      id=2 file=b.jpg gap=5s\n\
+                      id=3 file=c.jpg gap=120s\n\
+                      \nTreat a gap of about 90s as weak evidence.\n\
+                      Photo id=1 of file a.jpg\nPhoto id=2 of file b.jpg\n";
+        let got = flat_lines(prompt);
+        assert_eq!(got.len(), 3, "{got:?}");
+        let ids: Vec<String> = got.iter().map(|(i, _, _)| i.to_string()).collect();
+        assert_eq!(ids, ["1", "2", "3"], "numbers, as a real reply has them");
+        assert_eq!(
+            got[0].2, 0.0,
+            "no predecessor is not a zero-second gap, but it must not vanish"
+        );
+        assert_eq!(got[2].2, 120.0);
+    }
 
     #[test]
     fn empty_content_is_a_retriable_error_not_a_panic() {
