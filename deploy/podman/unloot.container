@@ -1,0 +1,42 @@
+# Podman Quadlet — one-shot run.
+#
+# Install as a user unit:
+#   mkdir -p ~/.config/containers/systemd
+#   cp deploy/podman/unloot.container deploy/podman/unloot.volume ~/.config/containers/systemd/
+#   chmod 600 ~/.config/unloot.env          # the file with your LLM URL/key
+#   systemctl --user daemon-reload
+#   systemctl --user start unloot.service   # runs once and exits
+#   journalctl --user -u unloot.service -f
+#
+# The photo folder is a named volume so podman owns the permissions; to work on
+# a host folder instead, replace the Volume line with e.g.
+#   Volume=%h/Vinted:/workdir:rw
+
+[Unit]
+Description=unloot — sort and compress Vinted photos once
+After=podman-user-wait-network-online.service
+
+[Container]
+Image=unloot:latest
+ContainerName=unloot
+Volume=unloot.volume:/workdir
+# Compulsory values live outside the unit file so it can stay in git.
+EnvironmentFile=%h/.config/unloot.env
+Environment=UNLOOT_LOG=info
+# /workdir is both input and output; the image sets these too.
+Environment=UNLOOT_INPUT_DIR=/workdir
+Environment=UNLOOT_OUTPUT_DIR=/workdir
+# One-shot by default. Set UNLOOT_WATCH=yes here (or use unloot-watch.container).
+AddCapability=none
+DropCapability=all
+NoNewPrivileges=true
+ReadOnly=true
+PidsLimit=256
+
+[Service]
+Type=oneshot
+# Sorting a few hundred photos over a slow model takes a while; do not kill it.
+TimeoutStartSec=infinity
+
+[Install]
+WantedBy=default.target

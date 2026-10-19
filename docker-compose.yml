@@ -1,0 +1,28 @@
+# One-shot: process ./input in place.
+#
+#   UNLOOT_LLM_URL=http://192.168.137.134:8010/v1 docker compose run --rm unloot
+#
+# Anything the program understands can be handed over here; see README.md for
+# the full table. Flags beat these environment values, and both beat the
+# program's defaults.
+
+services:
+  unloot:
+    build: .
+    image: unloot:latest
+    environment:
+      # Compulsory: where the image-capable model lives. No default anywhere.
+      UNLOOT_LLM_URL: ${UNLOOT_LLM_URL:-}
+      UNLOOT_LLM_API_KEY: ${UNLOOT_LLM_API_KEY:-}
+      UNLOOT_LLM_MODEL: ${UNLOOT_LLM_MODEL:-}
+      # /workdir is both input and output by the image's own ENV defaults.
+      UNLOOT_INPUT_DIR: ${UNLOOT_INPUT_DIR:-/workdir}
+      UNLOOT_OUTPUT_DIR: ${UNLOOT_OUTPUT_DIR:-/workdir}
+      UNLOOT_KEEP_SOURCE: ${UNLOOT_KEEP_SOURCE:-false}
+      UNLOOT_CURRENCY: ${UNLOOT_CURRENCY:-USD}
+      UNLOOT_LOG: ${UNLOOT_LOG:-info}
+    volumes:
+      # Your photos in, sorted folders and the CSV back out.
+      - ${PWD}/input:/workdir
+    # A container that lingers after sorting photos is a bug, not a feature.
+    restart: "no"

@@ -1,0 +1,24 @@
+[Unit]
+Description=unloot — keep a folder of Vinted photos sorted as it fills
+
+[Container]
+Image=unloot:latest
+ContainerName=unloot-watch
+Volume=unloot.volume:/workdir
+EnvironmentFile=%h/.config/unloot.env
+Environment=UNLOOT_INPUT_DIR=/workdir
+Environment=UNLOOT_OUTPUT_DIR=/workdir
+# The only real difference from the one-shot unit: stay up and poll.
+Environment=UNLOOT_WATCH=yes
+Environment=UNLOOT_WATCH_INTERVAL=15
+Environment=UNLOOT_SETTLE=20
+ReadOnly=true
+NoNewPrivileges=true
+PidsLimit=256
+
+[Service]
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

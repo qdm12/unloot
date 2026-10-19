@@ -1,0 +1,10 @@
+# Podman Quadlet data volume for the photo folder.
+# Created by `systemctl --user daemon-reload`, used as `unloot-volume` … podman
+# names quadlet volumes after the unit, so the container's Volume line must
+# match this file's name (see deploy/podman/README.md).
+
+[Unit]
+Description=unloot photo folder
+
+[Volume]
+Driver=local
